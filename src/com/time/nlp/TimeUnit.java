@@ -19,9 +19,6 @@ import com.time.enums.RangeTimeEnum;
  * @since 2016年5月4日
  */
 public class TimeUnit {
-    // 有需要可使用
-    // private static final Logger LOGGER =
-    // LoggerFactory.getLogger(TimeUnit.class);
     /**
      * 目标字符串
      */
@@ -29,6 +26,9 @@ public class TimeUnit {
     public String Time_Norm = "";
     public int[] time_full;
     public int[] time_origin;
+    public int start;
+    public int end;
+    boolean isSeries = false;
     private Date time;
     private Boolean isAllDayTime = true;
     private boolean isFirstTimeSolveContext = true;
@@ -39,30 +39,23 @@ public class TimeUnit {
 
     /**
      * 时间表达式单元构造方法 该方法作为时间表达式单元的入口，将时间表达式字符串传入
-     *
+     * 
      * @param exp_time
      *            时间表达式字符串
+     * @param start
+     *            起始位置
+     * @param end
+     *            截止位置
      * @param n
-     */
-
-    public TimeUnit(String exp_time, TimeNormalizer n) {
-        Time_Expression = exp_time;
-        normalizer = n;
-        Time_Normalization();
-    }
-
-    /**
-     * 时间表达式单元构造方法 该方法作为时间表达式单元的入口，将时间表达式字符串传入
-     *
-     * @param exp_time
-     *            时间表达式字符串
-     * @param n
+     *            时间表达式工作类
      * @param contextTp
-     *            上下文时间
+     *            上线文时间
      */
-
-    public TimeUnit(String exp_time, TimeNormalizer n, TimePoint contextTp) {
+    public TimeUnit(String exp_time, int start, int end, boolean isSeries, TimeNormalizer n, TimePoint contextTp) {
         Time_Expression = exp_time;
+        this.start = start;
+        this.end = end;
+        this.isSeries = isSeries;
         normalizer = n;
         _tp_origin = contextTp;
         Time_Normalization();
@@ -360,6 +353,21 @@ public class TimeUnit {
         Matcher match;
         String[] tmp_parser;
         String tmp_target;
+
+        /*
+         * 季度计算
+         */
+        rule = "第([1-4])季度?";
+        pattern = Pattern.compile(rule);
+        match = pattern.matcher(Time_Expression);
+        if (match.find()) {
+            tmp_target = match.group(1);
+            _tp.tunit[1] = (Integer.parseInt(tmp_target) - 1) * 3 + 1;
+            _tp.tunit[2] = 1;
+            _tp.tunit[3] = 0;
+            _tp.tunit[4] = 0;
+            _tp.tunit[5] = 0;
+        }
 
         rule = "(?<!(周|星期))([0-2]?[0-9]):[0-5]?[0-9]:[0-5]?[0-9]";
         pattern = Pattern.compile(rule);
@@ -916,9 +924,22 @@ public class TimeUnit {
         this.isAllDayTime = isAllDayTime;
     }
 
+    public int getStart() {
+        return start;
+    }
+
+    public int getEnd() {
+        return end;
+    }
+
+    public boolean isSeries() {
+        return isSeries;
+    }
+
     @Override
     public String toString() {
-        return Time_Expression + " ---> " + Time_Norm;
+        return "TimeUnit [Time_Expression=" + Time_Expression + ", Time_Norm=" + Time_Norm + ", start=" + start
+                + ", end=" + end + ", isSeries=" + isSeries + ", time=" + time + "]";
     }
 
     /**

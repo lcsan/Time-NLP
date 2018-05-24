@@ -209,47 +209,44 @@ public class TimeNormalizer implements Serializable {
      */
     private TimeUnit[] TimeEx(String tar, String timebase) {
         Matcher match;
-        int startline = -1, endline = -1;
-
-        String[] temp = new String[99];
+        int startline = -1, endline = -1;// 每个匹配时间的起止点
         int rpointer = 0;// 计数器，记录当前识别到哪一个字符串了
-        TimeUnit[] Time_Result = null;
+        int point_s = -1;// 统计时间起始点
+        String exp = null;// 记录时间字符
+        List<TimeUnit> tms = new ArrayList<TimeUnit>();
+        TimePoint contextTp = new TimePoint();
 
         match = patterns.matcher(tar);
-        boolean startmark = true;
+
         while (match.find()) {
             startline = match.start();
             if (endline == startline) // 假如下一个识别到的时间字段和上一个是相连的 @author kexm
             {
                 rpointer--;
-                temp[rpointer] = temp[rpointer] + match.group();// 则把下一个识别到的时间字段加到上一个时间字段去
+                exp += match.group();// 则把下一个识别到的时间字段加到上一个时间字段去
             } else {
-                if (!startmark) {
-                    rpointer--;
-                    rpointer++;
+                if (rpointer > 0) {
+                    boolean flag = false;
+                    if (rpointer > 1) {
+                        int fg = tms.get(tms.size() - 1).getEnd();
+                        flag = tar.substring(fg, point_s).matches("^[到至]$") ? true : false;
+                    }
+                    tms.add(new TimeUnit(exp, point_s, endline, flag, this, contextTp));
                 }
-                startmark = false;
-                temp[rpointer] = match.group();// 记录当前识别到的时间字段，并把startmark开关关闭。这个开关貌似没用？
+                exp = match.group();// 记录当前识别到的时间字段，并把startmark开关关闭。这个开关貌似没用？
+                point_s = startline;
             }
             endline = match.end();
             rpointer++;
         }
-        if (rpointer > 0) {
-            rpointer--;
-            rpointer++;
+        boolean flag = false;
+        if (rpointer > 1) {
+            int fg = tms.get(tms.size() - 1).getEnd();
+            flag = tar.substring(fg, point_s).matches("^[到至]$") ? true : false;
         }
-        Time_Result = new TimeUnit[rpointer];
-        /**
-         * 时间上下文： 前一个识别出来的时间会是下一个时间的上下文，用于处理：周六3点到5点这样的多个时间的识别，第二个5点应识别到是周六的。
-         */
-        TimePoint contextTp = new TimePoint();
-        for (int j = 0; j < rpointer; j++) {
-            Time_Result[j] = new TimeUnit(temp[j], this, contextTp);
-            contextTp = Time_Result[j]._tp;
-        }
+        tms.add(new TimeUnit(exp, point_s, endline, flag, this, contextTp));
         /** 过滤无法识别的字段 */
-        Time_Result = filterTimeUnit(Time_Result);
-        return Time_Result;
+        return filterTimeUnit(tms);
     }
 
     /**
@@ -258,14 +255,13 @@ public class TimeNormalizer implements Serializable {
      * @param timeUnit
      * @return
      */
-    public static TimeUnit[] filterTimeUnit(TimeUnit[] timeUnit) {
-        if (timeUnit == null || timeUnit.length < 1) {
-            return timeUnit;
+    public static TimeUnit[] filterTimeUnit(List<TimeUnit> list) {
+        if (null == list || list.isEmpty()) {
+            return null;
         }
-        List<TimeUnit> list = new ArrayList<>();
-        for (TimeUnit t : timeUnit) {
-            if (t.getTime().getTime() != -28800000) {
-                list.add(t);
+        for (int i = list.size() - 1; i >= 0; i--) {
+            if (list.get(i).getTime().getTime() == -28800000) {
+                list.remove(i);
             }
         }
         TimeUnit[] newT = new TimeUnit[list.size()];
@@ -312,11 +308,13 @@ public class TimeNormalizer implements Serializable {
          */
         TimeNormalizer normalizer = new TimeNormalizer(
                 TimeNormalizer.class.getClassLoader().getResource("TimeExp.zip").getFile());
-        normalizer.parse("今年第三季度");// 抽取时间
+        normalizer.parse("去年第4季度至今");// 抽取时间
         TimeUnit[] unit = normalizer.getTimeUnit();
         for (TimeUnit timeUnit : unit) {
             System.out.println(timeUnit);
+            System.out.println(timeUnit.getStart() + "-----" + timeUnit.getEnd());
         }
+
     }
 
 }
